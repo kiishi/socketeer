@@ -8,6 +8,9 @@ type MessageHandler interface {
 	OnMessage(message []byte, sendChannels map[string]chan []byte)
 }
 
+
+type OnConnectHook func(manager *SocketeerManager , connectionId string)
+
 type Identifier interface {
 	GetUniqueId() string
 }
@@ -15,12 +18,13 @@ type Identifier interface {
 type Action struct {
 	ActionName string `json:"action"`
 }
+type ActionHandler func(message []byte, allSendChannels map[string]chan []byte)
 
 type Config struct {
-	PongWait           uint32
-	PingPeriod         uint32
-	WriteWait          uint32
-	MaxMessageSize     uint32
-	MaxReadBufferSize  uint32
-	MaxWriteBufferSize uint32
+	PongWait           int
+	PingPeriod         int
+	WriteWait          int
+	MaxMessageSize     int64
+	MaxReadBufferSize  int
+	MaxWriteBufferSize int
 }

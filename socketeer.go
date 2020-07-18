@@ -10,16 +10,73 @@ import (
 	"time"
 )
 
-var once sync.Once
 type SocketeerManager struct {
 	sync.Mutex
+	initialized          bool
 	allConnection        map[string]*websocket.Conn
 	sendChannels         map[string]chan []byte
 	globalActionHandlers map[string]func(message []byte, sendChannels map[string]chan []byte)
 	messageHandlers      []MessageHandler
 	dispatchers          []Dispatcher
+	onConnectHooks       []OnConnectHook
 	IdGen                Identifier
 	Config               *Config
+}
+
+func (s *SocketeerManager) Init() {
+	if s.allConnection == nil {
+		s.Lock()
+		s.allConnection = make(map[string]*websocket.Conn)
+		s.Unlock()
+	}
+
+	if s.sendChannels == nil {
+		s.Lock()
+		s.sendChannels = make(map[string]chan []byte)
+		s.Unlock()
+	}
+
+	if s.Config != nil {
+		if s.Config.MaxMessageSize != 0 {
+			maxMessageSize = s.Config.MaxMessageSize
+		}
+
+		if s.Config.PongWait != 0 {
+			pongWait = time.Duration(s.Config.PongWait) * time.Second
+		}
+
+		if s.Config.MaxMessageSize != 0 {
+			maxMessageSize = s.Config.MaxMessageSize
+		}
+
+		if s.Config.MaxReadBufferSize != 0 {
+			maxReadBufferSize = s.Config.MaxReadBufferSize
+		}
+
+		if s.Config.MaxWriteBufferSize != 0 {
+			maxWriteBufferSize = s.Config.MaxWriteBufferSize
+		}
+
+		if s.Config.WriteWait != 0 {
+			writeWait = time.Duration(s.Config.WriteWait) * time.Second
+		}
+	}
+
+	for _, dispatcher := range s.dispatchers {
+		go dispatcher.Run(s)
+	}
+
+	s.initialized = true
+}
+
+func (s *SocketeerManager) AddOnConnectHook(hook OnConnectHook) {
+	s.Lock()
+	defer s.Unlock()
+	if s.onConnectHooks == nil {
+		s.onConnectHooks = []OnConnectHook{hook}
+	} else {
+		s.onConnectHooks = append(s.onConnectHooks, hook)
+	}
 }
 
 func (s *SocketeerManager) runWriter(connectionId string) {
@@ -33,6 +90,7 @@ func (s *SocketeerManager) runWriter(connectionId string) {
 	for {
 		select {
 		case message, ok := <-s.sendChannels[connectionId]:
+
 			connection.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
 				connection.WriteMessage(websocket.CloseMessage, []byte{})
@@ -59,7 +117,8 @@ func (s *SocketeerManager) runReader(connectionId string) {
 		defer func() {
 			connection.Close()
 		}()
-		connection.SetReadLimit(int64(maxMessageSize))
+
+		connection.SetReadLimit(maxMessageSize)
 		connection.SetReadDeadline(time.Now().Add(pongWait))
 		connection.SetPongHandler(func(string) error {
 			connection.SetReadDeadline(time.Now().Add(pongWait))
@@ -99,25 +158,15 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true
 	},
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
+	ReadBufferSize:  maxReadBufferSize,
+	WriteBufferSize: maxWriteBufferSize,
 }
 
 func (s *SocketeerManager) Manage(response http.ResponseWriter, request *http.Request) (string, error) {
-	//TODO: add the config override
-	if s.allConnection == nil {
-		s.Lock()
-		s.allConnection = make(map[string]*websocket.Conn)
-		s.Unlock()
-	}
-
-	if s.sendChannels == nil {
-		s.Lock()
-		s.sendChannels = make(map[string]chan []byte)
-		s.Unlock()
-	}
-
 	connection, err := upgrader.Upgrade(response, request, nil)
+	if s.initialized == false {
+		panic("Socketeer not Initialized, Call Init()")
+	}
 	if err != nil {
 		return "", err
 	}
@@ -127,11 +176,10 @@ func (s *SocketeerManager) Manage(response http.ResponseWriter, request *http.Re
 	s.sendChannels[id] = make(chan []byte)
 	go s.runWriter(id)
 	go s.runReader(id)
-	for _, dispatcher := range s.dispatchers {
-		go dispatcher.Run(s)
+	for _ , hook := range s.onConnectHooks{
+		go hook(s , id)
 	}
 	s.Unlock()
-
 	return id, nil
 }
 
@@ -152,7 +200,7 @@ func (s *SocketeerManager) Remove(connectionId string) {
 }
 
 // for message handlers
-func (s *SocketeerManager) AddGlobalActionHandler(actionName string, handler func(message []byte, allSendChannels map[string]chan []byte)) {
+func (s *SocketeerManager) AddGlobalActionHandler(actionName string, handler ActionHandler) {
 	s.Lock()
 	defer s.Unlock()
 	s.globalActionHandlers[actionName] = handler
