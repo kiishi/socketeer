@@ -10,6 +10,7 @@ import (
 	"time"
 )
 
+var once sync.Once
 type SocketeerManager struct {
 	sync.Mutex
 	allConnection        map[string]*websocket.Conn
@@ -18,8 +19,8 @@ type SocketeerManager struct {
 	messageHandlers      []MessageHandler
 	dispatchers          []Dispatcher
 	IdGen                Identifier
+	Config               *Config
 }
-
 
 func (s *SocketeerManager) runWriter(connectionId string) {
 	ticker := time.NewTicker(pingPeriod)
@@ -51,7 +52,6 @@ func (s *SocketeerManager) runWriter(connectionId string) {
 		}
 	}
 }
-
 
 func (s *SocketeerManager) runReader(connectionId string) {
 	for {
@@ -104,6 +104,7 @@ var upgrader = websocket.Upgrader{
 }
 
 func (s *SocketeerManager) Manage(response http.ResponseWriter, request *http.Request) (string, error) {
+	//TODO: add the config override
 	if s.allConnection == nil {
 		s.Lock()
 		s.allConnection = make(map[string]*websocket.Conn)
@@ -126,7 +127,7 @@ func (s *SocketeerManager) Manage(response http.ResponseWriter, request *http.Re
 	s.sendChannels[id] = make(chan []byte)
 	go s.runWriter(id)
 	go s.runReader(id)
-	for _, dispatcher := range s.dispatchers{
+	for _, dispatcher := range s.dispatchers {
 		go dispatcher.Run(s)
 	}
 	s.Unlock()
@@ -171,13 +172,13 @@ func (s *SocketeerManager) AddMessageHandler(handler MessageHandler) {
 func (s *SocketeerManager) AddDispatcher(dispatcher Dispatcher) {
 	s.Lock()
 	defer s.Unlock()
-	if s.dispatchers == nil{
+	if s.dispatchers == nil {
 		s.dispatchers = []Dispatcher{dispatcher}
 		return
 	}
-	s.dispatchers = append(s.dispatchers , dispatcher)
+	s.dispatchers = append(s.dispatchers, dispatcher)
 }
 
-func (s *SocketeerManager) SendToId( connectionId string , message []byte ){
+func (s *SocketeerManager) SendToId(connectionId string, message []byte) {
 	s.sendChannels[connectionId] <- message
 }
