@@ -1,4 +1,4 @@
-## Socketeer ![](https://github.com/kiishi/socketeer/workflows/.github/main.yml/badge.svg)
+## Socketeer ![](https://github.com/kiishi/socketeer/workflows/CI/badge.svg)
 > ( pronounced "socket-eer" )
 
 An little abstraction on top of gorilla's *[Websocket Library](https://github.com/gorilla/websocket)* \
