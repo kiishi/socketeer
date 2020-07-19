@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-type SocketeerManager struct {
+type Manager struct {
 	sync.Mutex
 	initialized          bool
 	allConnection        map[string]*websocket.Conn
@@ -18,12 +18,13 @@ type SocketeerManager struct {
 	globalActionHandlers map[string]func(message []byte, sendChannels map[string]chan []byte)
 	messageHandlers      []MessageHandler
 	dispatchers          []Dispatcher
-	onConnectHooks       []OnConnectHook
-	IdGen                Identifier
+	OnConnect      OnConnectHook
+	onDisconnectHooks    []OnDisconnectHook
+	IdGen                IdGen
 	Config               *Config
 }
 
-func (s *SocketeerManager) Init() {
+func (s *Manager) Init() {
 	if s.allConnection == nil {
 		s.Lock()
 		s.allConnection = make(map[string]*websocket.Conn)
@@ -69,17 +70,8 @@ func (s *SocketeerManager) Init() {
 	s.initialized = true
 }
 
-func (s *SocketeerManager) AddOnConnectHook(hook OnConnectHook) {
-	s.Lock()
-	defer s.Unlock()
-	if s.onConnectHooks == nil {
-		s.onConnectHooks = []OnConnectHook{hook}
-	} else {
-		s.onConnectHooks = append(s.onConnectHooks, hook)
-	}
-}
 
-func (s *SocketeerManager) runWriter(connectionId string) {
+func (s *Manager) runWriter(connectionId string) {
 	ticker := time.NewTicker(pingPeriod)
 	connection := s.allConnection[connectionId]
 	defer func() {
@@ -111,7 +103,7 @@ func (s *SocketeerManager) runWriter(connectionId string) {
 	}
 }
 
-func (s *SocketeerManager) runReader(connectionId string) {
+func (s *Manager) runReader(connectionId string) {
 	for {
 		connection := s.allConnection[connectionId]
 		defer func() {
@@ -125,10 +117,18 @@ func (s *SocketeerManager) runReader(connectionId string) {
 			return nil
 		})
 
-		_, message, err := connection.ReadMessage()
+		_ , message, err := connection.ReadMessage()
+
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				//logrus.Errorf("Error occurred while reading message for %", err.Error())
+				s.Lock()
+				delete(s.allConnection, connectionId)
+				delete(s.sendChannels, connectionId)
+				s.Unlock()
+
+				for _, hook := range s.onDisconnectHooks {
+					go hook(s, connectionId)
+				}
 				return
 			}
 		}
@@ -149,7 +149,10 @@ func (s *SocketeerManager) runReader(connectionId string) {
 
 		// call MessageHandlers
 		for _, handler := range s.messageHandlers {
-			handler.OnMessage(message, s.sendChannels)
+			handler.OnMessage(s, &MessageContext{
+				From: connectionId,
+				Body: message,
+			})
 		}
 	}
 }
@@ -162,7 +165,7 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: maxWriteBufferSize,
 }
 
-func (s *SocketeerManager) Manage(response http.ResponseWriter, request *http.Request) (string, error) {
+func (s *Manager) Manage(response http.ResponseWriter, request *http.Request) (string, error) {
 	connection, err := upgrader.Upgrade(response, request, nil)
 	if s.initialized == false {
 		panic("Socketeer not Initialized, Call Init()")
@@ -170,26 +173,24 @@ func (s *SocketeerManager) Manage(response http.ResponseWriter, request *http.Re
 	if err != nil {
 		return "", err
 	}
-	id := s.IdGen.GetUniqueId()
+	id := s.IdGen()
 	s.Lock()
 	s.allConnection[id] = connection
 	s.sendChannels[id] = make(chan []byte)
 	go s.runWriter(id)
 	go s.runReader(id)
-	for _ , hook := range s.onConnectHooks{
-		go hook(s , id)
-	}
+	go s.OnConnect(s, request, id)
 	s.Unlock()
 	return id, nil
 }
 
-func (s *SocketeerManager) Broadcast(message []byte) {
+func (s *Manager) Broadcast(message []byte) {
 	for _, channel := range s.sendChannels {
 		channel <- message
 	}
 }
 
-func (s *SocketeerManager) Remove(connectionId string) {
+func (s *Manager) Remove(connectionId string) {
 	if connection, ok := s.allConnection[connectionId]; ok {
 		connection.Close()
 		s.Lock()
@@ -200,13 +201,13 @@ func (s *SocketeerManager) Remove(connectionId string) {
 }
 
 // for message handlers
-func (s *SocketeerManager) AddGlobalActionHandler(actionName string, handler ActionHandler) {
+func (s *Manager) AddGlobalActionHandler(actionName string, handler ActionHandler) {
 	s.Lock()
 	defer s.Unlock()
 	s.globalActionHandlers[actionName] = handler
 }
 
-func (s *SocketeerManager) AddMessageHandler(handler MessageHandler) {
+func (s *Manager) AddMessageHandler(handler MessageHandler) {
 	s.Lock()
 	defer s.Unlock()
 	if s.messageHandlers == nil {
@@ -217,7 +218,7 @@ func (s *SocketeerManager) AddMessageHandler(handler MessageHandler) {
 }
 
 // for dispatcher handling
-func (s *SocketeerManager) AddDispatcher(dispatcher Dispatcher) {
+func (s *Manager) AddDispatcher(dispatcher Dispatcher) {
 	s.Lock()
 	defer s.Unlock()
 	if s.dispatchers == nil {
@@ -227,6 +228,17 @@ func (s *SocketeerManager) AddDispatcher(dispatcher Dispatcher) {
 	s.dispatchers = append(s.dispatchers, dispatcher)
 }
 
-func (s *SocketeerManager) SendToId(connectionId string, message []byte) {
-	s.sendChannels[connectionId] <- message
+func (s *Manager) SendToId(connectionId string, message []byte) error {
+	if user, ok := s.sendChannels[connectionId]; ok {
+		user <- message
+		return nil
+	} else {
+		return ConnectionIdDoestExist
+	}
+
+}
+
+
+func ( s *Manager ) AddIdFactory(idGen IdGen) {
+	s.IdGen = idGen
 }

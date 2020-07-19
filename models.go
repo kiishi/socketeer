@@ -1,15 +1,24 @@
 package socketeer
 
+import "net/http"
+
 type Dispatcher interface {
-	Run(commander *SocketeerManager)
+	Run(commander *Manager)
+}
+type MessageContext struct{
+	From string
+	Body []byte
 }
 
 type MessageHandler interface {
-	OnMessage(message []byte, sendChannels map[string]chan []byte)
+	OnMessage( manager *Manager , ctx *MessageContext )
 }
 
+type IdGen func() string
 
-type OnConnectHook func(manager *SocketeerManager , connectionId string)
+type OnDisconnectHook func(manager *Manager , connectionId string)
+
+type OnConnectHook func(manager *Manager , request *http.Request , connectionId string)
 
 type Identifier interface {
 	GetUniqueId() string
