@@ -1,7 +1,6 @@
 package socketeer
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/gorilla/websocket"
 	"log"
@@ -12,16 +11,15 @@ import (
 
 type Manager struct {
 	sync.Mutex
-	initialized          bool
-	allConnection        map[string]*websocket.Conn
-	sendChannels         map[string]chan []byte
-	globalActionHandlers map[string]func(message []byte, sendChannels map[string]chan []byte)
-	messageHandlers      []MessageHandler
-	dispatchers          []Dispatcher
-	OnConnect      OnConnectHook
-	onDisconnectHooks    []OnDisconnectHook
-	IdGen                IdGen
-	Config               *Config
+	initialized     bool
+	allConnection   map[string]*websocket.Conn
+	sendChannels    map[string]chan []byte
+	messageHandlers []MessageHandler
+	dispatchers     []Dispatcher
+	OnConnect       OnConnectFunc
+	OnDisconnect    OnDisconnectFunc
+	IdGen           IdGen
+	Config          *Config
 }
 
 func (s *Manager) Init() {
@@ -70,7 +68,6 @@ func (s *Manager) Init() {
 	s.initialized = true
 }
 
-
 func (s *Manager) runWriter(connectionId string) {
 	ticker := time.NewTicker(pingPeriod)
 	connection := s.allConnection[connectionId]
@@ -117,7 +114,7 @@ func (s *Manager) runReader(connectionId string) {
 			return nil
 		})
 
-		_ , message, err := connection.ReadMessage()
+		_, message, err := connection.ReadMessage()
 
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
@@ -125,25 +122,11 @@ func (s *Manager) runReader(connectionId string) {
 				delete(s.allConnection, connectionId)
 				delete(s.sendChannels, connectionId)
 				s.Unlock()
-
-				for _, hook := range s.onDisconnectHooks {
-					go hook(s, connectionId)
-				}
+				s.OnDisconnect(s, connectionId)
 				return
-			}
-		}
-
-		var action *Action
-		err = json.Unmarshal(message, &action)
-
-		if err != nil {
-			log.Println(err.Error())
-		}
-
-		//call custom actions
-		if action != nil {
-			if handler, ok := s.globalActionHandlers[action.ActionName]; ok {
-				handler(message, s.sendChannels)
+			} else {
+				fmt.Printf("Socketeer Error for connection %s ==> %s", err.Error())
+				return
 			}
 		}
 
@@ -200,13 +183,6 @@ func (s *Manager) Remove(connectionId string) {
 	}
 }
 
-// for message handlers
-func (s *Manager) AddGlobalActionHandler(actionName string, handler ActionHandler) {
-	s.Lock()
-	defer s.Unlock()
-	s.globalActionHandlers[actionName] = handler
-}
-
 func (s *Manager) AddMessageHandler(handler MessageHandler) {
 	s.Lock()
 	defer s.Unlock()
@@ -238,7 +214,6 @@ func (s *Manager) SendToId(connectionId string, message []byte) error {
 
 }
 
-
-func ( s *Manager ) AddIdFactory(idGen IdGen) {
+func (s *Manager) AddIdFactory(idGen IdGen) {
 	s.IdGen = idGen
 }

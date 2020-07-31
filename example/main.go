@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/kiishi/socketeer"
 	"log"
 	"net/http"
@@ -22,6 +23,9 @@ var managers = socketeer.Manager{
 		store.AllUsers[connectionId] = nil
 		log.Println(request.URL.Path)
 	},
+	OnDisconnect: func(m* socketeer.Manager , connectionId string ){
+		fmt.Printf("%s disconnected" , connectionId)
+	},
 }
 
 func WsHandler(w http.ResponseWriter, r *http.Request) {
@@ -38,6 +42,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws", WsHandler)
 
+	log.Println("Starting server...")
 	err := http.ListenAndServe(":8080", mux)
 
 	if err != nil {

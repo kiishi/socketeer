@@ -16,9 +16,9 @@ type MessageHandler interface {
 
 type IdGen func() string
 
-type OnDisconnectHook func(manager *Manager , connectionId string)
+type OnDisconnectFunc func(manager *Manager , connectionId string)
 
-type OnConnectHook func(manager *Manager , request *http.Request , connectionId string)
+type OnConnectFunc func(manager *Manager , request *http.Request , connectionId string)
 
 type Identifier interface {
 	GetUniqueId() string
