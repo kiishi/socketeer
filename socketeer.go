@@ -125,7 +125,7 @@ func (s *Manager) runReader(connectionId string) {
 				s.OnDisconnect(s, connectionId)
 				return
 			} else {
-				fmt.Printf("Socketeer Error for connection %s ==> %s", err.Error())
+				fmt.Printf("Socketeer Error for connection %s ==> %s", connectionId , err.Error())
 				return
 			}
 		}
