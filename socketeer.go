@@ -122,10 +122,12 @@ func (s *Manager) runReader(connectionId string) {
 				delete(s.allConnection, connectionId)
 				delete(s.sendChannels, connectionId)
 				s.Unlock()
-				s.OnDisconnect(s, connectionId)
+				if s.OnDisconnect != nil {
+					s.OnDisconnect(s, connectionId)
+				}
 				return
 			} else {
-				fmt.Printf("Socketeer Error for connection %s ==> %s", connectionId , err.Error())
+				fmt.Printf("Socketeer Error for connection %s ==> %s", connectionId, err.Error())
 				return
 			}
 		}
@@ -162,7 +164,9 @@ func (s *Manager) Manage(response http.ResponseWriter, request *http.Request) (s
 	s.sendChannels[id] = make(chan []byte)
 	go s.runWriter(id)
 	go s.runReader(id)
-	go s.OnConnect(s, request, id)
+	if s.OnConnect != nil {
+		go s.OnConnect(s, request, id)
+	}
 	s.Unlock()
 	return id, nil
 }
