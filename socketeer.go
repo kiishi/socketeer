@@ -117,7 +117,7 @@ func (s *Manager) runReader(connectionId string) {
 		_, message, err := connection.ReadMessage()
 
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) || websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				s.Lock()
 				delete(s.allConnection, connectionId)
 				delete(s.sendChannels, connectionId)
