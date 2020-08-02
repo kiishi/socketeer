@@ -127,7 +127,7 @@ func (s *Manager) runReader(connectionId string) {
 				}
 				return
 			} else {
-				fmt.Printf("Socketeer Error for connection %s ==> %s", connectionId, err.Error())
+				fmt.Printf("Socketeer Error for connection %s ==> %s \n", connectionId, err.Error())
 				return
 			}
 		}
