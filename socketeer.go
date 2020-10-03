@@ -101,12 +101,12 @@ func (s *Manager) runWriter(connectionId string) {
 }
 
 func (s *Manager) runReader(connectionId string) {
-	for {
-		connection := s.allConnection[connectionId]
-		defer func() {
-			connection.Close()
-		}()
+	connection := s.allConnection[connectionId]
+	defer func() {
+		connection.Close()
+	}()
 
+	for {
 		connection.SetReadLimit(maxMessageSize)
 		connection.SetReadDeadline(time.Now().Add(pongWait))
 		connection.SetPongHandler(func(string) error {

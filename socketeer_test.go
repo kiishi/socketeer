@@ -69,12 +69,8 @@ func TestSocketeerManager_main(t *testing.T) {
 		if err != nil {
 			t.Fatal("Couldnt read message from the websocket")
 		}
-
 		assert.Greater(t, len(message), 0)
-
-		//Recieves Dispatcher Message
-
-		time.Sleep(11 * time.Second) // Bad Practice
+		time.Sleep(11 * time.Second)
 		_, helloMessage, err := conn.ReadMessage()
 
 		assert.Equal(t, []byte("hello"), helloMessage)
