@@ -31,11 +31,12 @@ func BootstrapRouter() *http.ServeMux {
 		IdGen: func() string {
 			return "user" + strconv.Itoa(int(time.Now().UnixNano()))
 		},
-		OnConnect: func(manager *Manager, request *http.Request, connectionId string) {
-			fmt.Fprint(samplebuffer, "connected")
-		},
 	}
 
+	manager.onConnect = func(manager *Manager, request *http.Request, s string) {
+		fmt.Fprint(samplebuffer, "connected")
+
+	}
 	manager.AddDispatcher(&sampleDispatcher{})
 
 	manager.Init()
