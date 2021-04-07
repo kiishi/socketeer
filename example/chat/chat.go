@@ -2,8 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/kiishi/socketeer"
 	"log"
+	"net/http"
 	"sync"
 )
 
@@ -20,6 +22,15 @@ type Message struct {
 	To          string `json:"to"`
 	Room        string `json:"room"`
 	MessageBody string `json:"message_body"`
+}
+
+
+func (c *ChatStoreObject) OnConnect(manager *socketeer.Manager , request *http.Request , connectionId string){
+	fmt.Println("[Action] Connected")
+}
+
+func (c *ChatStoreObject) OnDisconnect(manager *socketeer.Manager , connectionId string){
+	fmt.Println("[Action] Disconnected")
 }
 
 func (c *ChatStoreObject) OnMessage(manager *socketeer.Manager, ctx *socketeer.MessageContext) {
