@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/kiishi/socketeer"
 	"log"
 	"net/http"
@@ -18,15 +17,8 @@ var managers = socketeer.Manager{
 	IdGen: func() string {
 		return strconv.Itoa(int(time.Now().UnixNano()))
 	},
-	OnConnect: func(m *socketeer.Manager , request *http.Request , connectionId string){
-		m.SendToId(connectionId, []byte(connectionId))
-		store.AllUsers[connectionId] = nil
-		log.Println(request.URL.Path)
-	},
-	OnDisconnect: func(m* socketeer.Manager , connectionId string ){
-		fmt.Printf("%s disconnected" , connectionId)
-	},
 }
+
 
 func WsHandler(w http.ResponseWriter, r *http.Request) {
 	_, err := managers.Manage(w, r)

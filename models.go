@@ -5,20 +5,28 @@ import "net/http"
 type Dispatcher interface {
 	Run(commander *Manager)
 }
-type MessageContext struct{
+type MessageContext struct {
 	From string
 	Body []byte
 }
 
 type MessageHandler interface {
-	OnMessage( manager *Manager , ctx *MessageContext )
+	OnMessage(manager *Manager, ctx *MessageContext)
+}
+
+type OnConnectHandler interface {
+	OnConnect(manager *Manager, request *http.Request, connectionId string)
+}
+
+type OnDisconnectHandler interface {
+	OnDisconnect(manager *Manager, connectionId string)
 }
 
 type IdGen func() string
 
-type OnDisconnectFunc func(manager *Manager , connectionId string)
+type OnDisconnectFunc func(manager *Manager, connectionId string)
 
-type OnConnectFunc func(manager *Manager , request *http.Request , connectionId string)
+type OnConnectFunc func(manager *Manager, request *http.Request, connectionId string)
 
 type Identifier interface {
 	GetUniqueId() string

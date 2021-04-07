@@ -9,6 +9,10 @@ import (
 	"time"
 )
 
+func NewManager() *Manager {
+	return &Manager{}
+}
+
 type Manager struct {
 	sync.Mutex
 	initialized     bool
@@ -16,10 +20,19 @@ type Manager struct {
 	sendChannels    map[string]chan []byte
 	messageHandlers []MessageHandler
 	dispatchers     []Dispatcher
-	OnConnect       OnConnectFunc
-	OnDisconnect    OnDisconnectFunc
+	onConnect       OnConnectFunc
+	onDisconnect    OnDisconnectFunc
 	IdGen           IdGen
 	Config          *Config
+}
+
+func (s *Manager) OnConnect(onConnectHandler OnConnectFunc) {
+	s.onConnect = onConnectHandler
+}
+
+
+func (s *Manager) OnDisconnect(onDisconnectHandler OnDisconnectFunc) {
+	s.onDisconnect = onDisconnectHandler
 }
 
 func (s *Manager) Init() {
@@ -122,8 +135,14 @@ func (s *Manager) runReader(connectionId string) {
 				delete(s.allConnection, connectionId)
 				delete(s.sendChannels, connectionId)
 				s.Unlock()
-				if s.OnDisconnect != nil {
-					s.OnDisconnect(s, connectionId)
+				if s.onDisconnect != nil {
+					s.onDisconnect(s, connectionId)
+				}
+				// if all handlers have an onDisconnectFunction
+				for _ , handler := range s.messageHandlers{
+					if instanceDisconnectFunc , ok := handler.(OnDisconnectHandler); ok{
+						instanceDisconnectFunc.OnDisconnect(s , connectionId)
+					}
 				}
 				return
 			} else {
@@ -164,10 +183,18 @@ func (s *Manager) Manage(response http.ResponseWriter, request *http.Request) (s
 	s.sendChannels[id] = make(chan []byte)
 	go s.runWriter(id)
 	go s.runReader(id)
-	if s.OnConnect != nil {
-		go s.OnConnect(s, request, id)
-	}
 	s.Unlock()
+
+	if s.onConnect != nil {
+		//d
+		go s.onConnect(s, request, id)
+	}
+
+	for _ , handler := range s.messageHandlers{
+		if instanceOnConnectFunc ,ok := handler.(OnConnectHandler);ok{
+			instanceOnConnectFunc.OnConnect(s, request , id)
+		}
+	}
 	return id, nil
 }
 
