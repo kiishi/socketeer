@@ -24,9 +24,9 @@ type OnDisconnectHandler interface {
 
 type IdGen func() string
 
-type OnDisconnectFunc func(manager *Manager, connectionId string)
+type OnDisconnectFunc func(*Manager, string)
 
-type OnConnectFunc func(manager *Manager, request *http.Request, connectionId string)
+type OnConnectFunc func(*Manager, *http.Request, string)
 
 type Identifier interface {
 	GetUniqueId() string
