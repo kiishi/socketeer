@@ -22,7 +22,7 @@ type Manager struct {
 	dispatchers     []Dispatcher
 	onConnect       OnConnectFunc
 	onDisconnect    OnDisconnectFunc
-	IdGen           IdGen
+	IdGen           IdFactory
 	Config          *Config
 }
 
@@ -245,6 +245,6 @@ func (s *Manager) SendToId(connectionId string, message []byte) error {
 
 }
 
-func (s *Manager) AddIdFactory(idGen IdGen) {
+func (s *Manager) AddIdFactory(idGen IdFactory) {
 	s.IdGen = idGen
 }

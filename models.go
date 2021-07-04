@@ -22,7 +22,7 @@ type OnDisconnectHandler interface {
 	OnDisconnect(manager *Manager, connectionId string)
 }
 
-type IdGen func() string
+type IdFactory func() string
 
 type OnDisconnectFunc func(*Manager, string)
 
