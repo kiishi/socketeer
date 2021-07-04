@@ -44,8 +44,6 @@ func (m *MockObject) OnMessage(manager *Manager, msg *MessageContext) {
 	fmt.Fprint(m.OnMessageBuffer, "[Message]")
 }
 
-
-
 func BootStrapRouterWithCustomHandler(handlerObject *MockObject) *http.ServeMux {
 	manager := Manager{
 		IdGen: func() string {
@@ -119,10 +117,6 @@ func TestSocketeerManager_main(t *testing.T) {
 		ConnectToTestServer(t, serverWithCustomHandler)
 		connectionMessage, _ := ioutil.ReadAll(MockHandlerObject.ConnectBuffer)
 		assert.True(t, string(connectionMessage) == "[Connected]")
-		//TODO: figure out hose to test disconnect
-		//conn.Close()
-		//disconnectionMessage , _ := ioutil.ReadAll(MockHandlerObject.DisconnectBuffer)
-		//assert.True(t, string(disconnectionMessage) == "[Disconnected]")
 	})
 
 	var MockBuffer = MockObject{
@@ -134,13 +128,8 @@ func TestSocketeerManager_main(t *testing.T) {
 
 	t.Run("Runs onConnect Function ", func(t *testing.T) {
 		ConnectToTestServer(t, serverWithoutCustomHandler)
-		connectionMessage , _ := ioutil.ReadAll(MockBuffer.ConnectBuffer)
+		connectionMessage, _ := ioutil.ReadAll(MockBuffer.ConnectBuffer)
 		assert.True(t, len(connectionMessage) != 0)
-		//TODO: same as above
-		//conn.Close()
-		//disconnectionMessage , _ := ioutil.ReadAll(MockBuffer.DisconnectBuffer)
-		//assert.True(t, len(disconnectionMessage) != 0)
 	})
-
 
 }
